@@ -1,0 +1,46 @@
+.dashboard-container {
+    max-width: 600px;
+    margin: 40px auto;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+}
+
+.dashboard-actions {
+    display: flex;
+    justify-content: flex-start;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.test-list {
+    list-style: none;
+    padding: 0;
+}
+
+.test-item {
+    margin-bottom: 20px;
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+}
+
+.test-buttons {
+    margin-top: 5px;
+    display: flex;
+    gap: 10px;
+}
+
+.share-link {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #555;
+}
+
+.share-link input {
+    width: 100%;
+    max-width: 300px;
+    margin-top: 4px;
+    padding: 4px;
+    font-size: 12px;
+}

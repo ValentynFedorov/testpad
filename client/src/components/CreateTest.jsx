@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { saveTest } from '../utils/storage';
+import styles from './CreateTest.module.css';
 
 const QUESTION_TYPES = [
     { value: 'single', label: 'Single Choice' },
@@ -18,7 +19,6 @@ export default function CreateTest() {
     const { user } = useAuth();
     const navigate = useNavigate();
 
-    // Add a new group
     const handleAddGroup = () => {
         if (currentGroup && !groups.includes(currentGroup)) {
             setGroups([...groups, currentGroup]);
@@ -26,7 +26,6 @@ export default function CreateTest() {
         }
     };
 
-    // Add a new question
     const handleAddQuestion = () => {
         setQuestions([
             ...questions,
@@ -41,11 +40,9 @@ export default function CreateTest() {
         ]);
     };
 
-    // Update question fields
     const handleQuestionChange = (idx, field, value) => {
         const updated = [...questions];
         updated[idx][field] = value;
-        // Reset options/answers if type changes
         if (field === 'type') {
             if (value === 'single' || value === 'multiple') {
                 updated[idx].options = [''];
@@ -64,7 +61,6 @@ export default function CreateTest() {
         setQuestions(updated);
     };
 
-    // Add/remove options for single/multiple choice
     const handleOptionChange = (qIdx, optIdx, value) => {
         const updated = [...questions];
         updated[qIdx].options[optIdx] = value;
@@ -81,7 +77,6 @@ export default function CreateTest() {
         setQuestions(updated);
     };
 
-    // Add/remove matches for matching type
     const handleMatchChange = (qIdx, mIdx, side, value) => {
         const updated = [...questions];
         updated[qIdx].matches[mIdx][side] = value;
@@ -98,28 +93,24 @@ export default function CreateTest() {
         setQuestions(updated);
     };
 
-    // Set correct answer(s)
     const handleAnswerChange = (qIdx, value) => {
         const updated = [...questions];
         updated[qIdx].answer = value;
         setQuestions(updated);
     };
 
-    // Set group for question
     const handleGroupChange = (qIdx, value) => {
         const updated = [...questions];
         updated[qIdx].group = value;
         setQuestions(updated);
     };
 
-    // Remove question
     const handleRemoveQuestion = (idx) => {
         const updated = [...questions];
         updated.splice(idx, 1);
         setQuestions(updated);
     };
 
-    // Save test
     const handleSubmit = (e) => {
         e.preventDefault();
         if (!title || questions.some(q => !q.q || (q.type === 'single' && (q.options.length < 2 || q.answer.length !== 1)) ||
@@ -133,14 +124,14 @@ export default function CreateTest() {
     };
 
     return (
-        <div style={{ maxWidth: 800, margin: '40px auto' }}>
-            <h2>Create New Test</h2>
+        <div className={styles.container}>
+            <h2 className={styles.title}>Create New Test</h2>
             <form onSubmit={handleSubmit}>
                 <input
                     placeholder="Test Title"
                     value={title}
                     onChange={e => setTitle(e.target.value)}
-                    style={{ width: '100%', marginBottom: 16 }}
+                    className={styles.formInput}
                 />
 
                 {/* Group management */}
@@ -149,29 +140,31 @@ export default function CreateTest() {
                         placeholder="Add new group (topic)"
                         value={currentGroup}
                         onChange={e => setCurrentGroup(e.target.value)}
-                        style={{ width: 200, marginRight: 8 }}
+                        className={styles.groupInput}
                     />
-                    <button type="button" onClick={handleAddGroup}>Add Group</button>
-                    <div>
-                        {groups.length > 0 && <b>Groups:</b>} {groups.join(', ')}
+                    <button type="button" onClick={handleAddGroup} className={styles.button}>
+                        Add Group
+                    </button>
+                    <div className={styles.groupList}>
+                        {groups.length > 0 && <><b>Groups:</b> {groups.join(', ')}</>}
                     </div>
                 </div>
 
                 {/* Questions */}
                 <h4>Questions</h4>
                 {questions.map((q, idx) => (
-                    <div key={idx} style={{ border: '1px solid #ccc', borderRadius: 8, padding: 12, marginBottom: 16 }}>
-                        <div style={{ marginBottom: 8 }}>
+                    <div key={idx} className={styles.questionCard}>
+                        <div className={styles.questionHeader}>
                             <input
                                 placeholder={`Question ${idx + 1}`}
                                 value={q.q}
                                 onChange={e => handleQuestionChange(idx, 'q', e.target.value)}
-                                style={{ width: '70%' }}
+                                className={styles.questionInput}
                             />
                             <select
                                 value={q.type}
                                 onChange={e => handleQuestionChange(idx, 'type', e.target.value)}
-                                style={{ marginLeft: 8 }}
+                                className={styles.select}
                             >
                                 {QUESTION_TYPES.map(opt => (
                                     <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -180,14 +173,16 @@ export default function CreateTest() {
                             <select
                                 value={q.group}
                                 onChange={e => handleGroupChange(idx, e.target.value)}
-                                style={{ marginLeft: 8 }}
+                                className={styles.select}
                             >
                                 <option value="">No Group</option>
                                 {groups.map(g => (
                                     <option key={g} value={g}>{g}</option>
                                 ))}
                             </select>
-                            <button type="button" onClick={() => handleRemoveQuestion(idx)} style={{ marginLeft: 8, color: 'red' }}>Remove</button>
+                            <button type="button" onClick={() => handleRemoveQuestion(idx)} className={styles.buttonRemove}>
+                                Remove
+                            </button>
                         </div>
 
                         {/* Single Choice */}
@@ -195,12 +190,12 @@ export default function CreateTest() {
                             <div>
                                 <b>Options:</b>
                                 {q.options.map((opt, optIdx) => (
-                                    <div key={optIdx} style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+                                    <div key={optIdx} className={styles.optionRow}>
                                         <input
                                             type="text"
                                             value={opt}
                                             onChange={e => handleOptionChange(idx, optIdx, e.target.value)}
-                                            style={{ width: 200 }}
+                                            className={styles.optionInput}
                                         />
                                         <input
                                             type="radio"
@@ -209,13 +204,17 @@ export default function CreateTest() {
                                             onChange={() => handleAnswerChange(idx, [optIdx])}
                                             style={{ marginLeft: 8 }}
                                         />
-                                        <span style={{ marginLeft: 4 }}>Correct</span>
+                                        <span className={styles.correctLabel}>Correct</span>
                                         {q.options.length > 1 && (
-                                            <button type="button" onClick={() => handleRemoveOption(idx, optIdx)} style={{ marginLeft: 8 }}>Remove</button>
+                                            <button type="button" onClick={() => handleRemoveOption(idx, optIdx)} className={styles.button}>
+                                                Remove
+                                            </button>
                                         )}
                                     </div>
                                 ))}
-                                <button type="button" onClick={() => handleAddOption(idx)}>Add Option</button>
+                                <button type="button" onClick={() => handleAddOption(idx)} className={styles.button}>
+                                    Add Option
+                                </button>
                             </div>
                         )}
 
@@ -224,12 +223,12 @@ export default function CreateTest() {
                             <div>
                                 <b>Options:</b>
                                 {q.options.map((opt, optIdx) => (
-                                    <div key={optIdx} style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+                                    <div key={optIdx} className={styles.optionRow}>
                                         <input
                                             type="text"
                                             value={opt}
                                             onChange={e => handleOptionChange(idx, optIdx, e.target.value)}
-                                            style={{ width: 200 }}
+                                            className={styles.optionInput}
                                         />
                                         <input
                                             type="checkbox"
@@ -242,13 +241,17 @@ export default function CreateTest() {
                                             }}
                                             style={{ marginLeft: 8 }}
                                         />
-                                        <span style={{ marginLeft: 4 }}>Correct</span>
+                                        <span className={styles.correctLabel}>Correct</span>
                                         {q.options.length > 1 && (
-                                            <button type="button" onClick={() => handleRemoveOption(idx, optIdx)} style={{ marginLeft: 8 }}>Remove</button>
+                                            <button type="button" onClick={() => handleRemoveOption(idx, optIdx)} className={styles.button}>
+                                                Remove
+                                            </button>
                                         )}
                                     </div>
                                 ))}
-                                <button type="button" onClick={() => handleAddOption(idx)}>Add Option</button>
+                                <button type="button" onClick={() => handleAddOption(idx)} className={styles.button}>
+                                    Add Option
+                                </button>
                             </div>
                         )}
 
@@ -257,28 +260,32 @@ export default function CreateTest() {
                             <div>
                                 <b>Pairs:</b>
                                 {q.matches.map((pair, mIdx) => (
-                                    <div key={mIdx} style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+                                    <div key={mIdx} className={styles.matchRow}>
                                         <input
                                             type="text"
                                             placeholder="Left"
                                             value={pair.left}
                                             onChange={e => handleMatchChange(idx, mIdx, 'left', e.target.value)}
-                                            style={{ width: 120 }}
+                                            className={styles.matchInput}
                                         />
-                                        <span style={{ margin: '0 8px' }}>→</span>
+                                        <span>→</span>
                                         <input
                                             type="text"
                                             placeholder="Right"
                                             value={pair.right}
                                             onChange={e => handleMatchChange(idx, mIdx, 'right', e.target.value)}
-                                            style={{ width: 120 }}
+                                            className={styles.matchInput}
                                         />
                                         {q.matches.length > 1 && (
-                                            <button type="button" onClick={() => handleRemoveMatch(idx, mIdx)} style={{ marginLeft: 8 }}>Remove</button>
+                                            <button type="button" onClick={() => handleRemoveMatch(idx, mIdx)} className={styles.button}>
+                                                Remove
+                                            </button>
                                         )}
                                     </div>
                                 ))}
-                                <button type="button" onClick={() => handleAddMatch(idx)}>Add Pair</button>
+                                <button type="button" onClick={() => handleAddMatch(idx)} className={styles.button}>
+                                    Add Pair
+                                </button>
                             </div>
                         )}
 
@@ -286,19 +293,27 @@ export default function CreateTest() {
                         {q.type === 'text' && (
                             <div>
                                 <b>Correct Answer:</b>
-                                <input
-                                    type="text"
-                                    value={q.answer[0] || ''}
-                                    onChange={e => handleAnswerChange(idx, [e.target.value])}
-                                    style={{ width: 300, marginLeft: 8 }}
+                                <input type="text"
+                                       value={q.answer[0] || ''}
+                                       onChange={e => handleAnswerChange(idx, [e.target.value])}
+                                       className={styles.textAnswerInput}
                                 />
                             </div>
                         )}
                     </div>
                 ))}
-                <button type="button" onClick={handleAddQuestion}>Add Question</button>
-                <button type="submit" style={{ marginLeft: 10 }}>Save Test</button>
+                <button type="button" onClick={handleAddQuestion} className={styles.button}>
+                    Add Question
+                </button>
+
+                <div style={{ marginTop: 24 }}>
+                    <button type="submit" className={styles.button}>
+                        Save Test
+                    </button>
+                </div>
             </form>
         </div>
     );
 }
+
+

@@ -1,0 +1,107 @@
+/* CreateTest.module.css */
+
+.container {
+    max-width: 800px;
+    margin: 40px auto;
+}
+
+.title {
+    font-size: 1.5rem;
+    margin-bottom: 20px;
+}
+
+.formInput {
+    width: 100%;
+    margin-bottom: 16px;
+    padding: 6px 10px;
+    font-size: 1rem;
+    box-sizing: border-box;
+}
+
+.groupInput {
+    width: 200px;
+    margin-right: 8px;
+    padding: 6px 10px;
+    font-size: 1rem;
+    box-sizing: border-box;
+}
+
+.button {
+    padding: 6px 12px;
+    font-size: 1rem;
+    cursor: pointer;
+    margin-right: 8px;
+}
+
+.buttonRemove {
+    margin-left: 8px;
+    color: red;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.groupList {
+    margin-top: 8px;
+    font-weight: bold;
+}
+
+.questionCard {
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 16px;
+}
+
+.questionHeader {
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.questionInput {
+    width: 70%;
+    padding: 6px 8px;
+    font-size: 1rem;
+    box-sizing: border-box;
+}
+
+.select {
+    padding: 6px 8px;
+    font-size: 1rem;
+}
+
+.optionRow,
+.matchRow {
+    display: flex;
+    align-items: center;
+    margin-bottom: 4px;
+    gap: 8px;
+}
+
+.optionInput {
+    width: 200px;
+    padding: 6px 8px;
+    font-size: 1rem;
+    box-sizing: border-box;
+}
+
+.matchInput {
+    width: 120px;
+    padding: 6px 8px;
+    font-size: 1rem;
+    box-sizing: border-box;
+}
+
+.correctLabel {
+    margin-left: 4px;
+}
+
+.textAnswerInput {
+    width: 300px;
+    margin-left: 8px;
+    padding: 6px 8px;
+    font-size: 1rem;
+    box-sizing: border-box;
+}
