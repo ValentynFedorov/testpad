@@ -34,3 +34,11 @@ export function updateTest(updatedTest){
             localStorage.setItem('tests', JSON.stringify(tests));
         }
 }
+export function saveTestProgress(testId, userEmail, progress) {
+    localStorage.setItem(`test_progress_${testId}_${userEmail}`, JSON.stringify(progress));
+}
+
+export function getTestProgress(testId, userEmail) {
+    const saved = localStorage.getItem(`test_progress_${testId}_${userEmail}`);
+    return saved ? JSON.parse(saved) : null;
+}

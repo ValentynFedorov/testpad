@@ -1,198 +1,256 @@
-//TakeTest.jsx
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getTestById, saveSession } from '../utils/storage';
-
-function groupQuestionsByTopic(questions) {
-    const groups = {};
-    questions.forEach((q, idx) => {
-        const group = q.group || 'Ungrouped';
-        if (!groups[group]) groups[group] = [];
-        groups[group].push({ ...q, idx });
-    });
-    return groups;
-}
+import { getTestById, saveSession, getTestProgress, saveTestProgress } from '../utils/storage';
 
 export default function TakeTest() {
     const { testId } = useParams();
     const test = getTestById(testId);
     const { user, logout } = useAuth();
-    const [answers, setAnswers] = useState(test ? test.questions.map(q => {
-        if (q.type === 'multiple') return [];
-        if (q.type === 'match') return q.matches.map(() => '');
-        return '';
-    }) : []);
-    const [submitted, setSubmitted] = useState(false);
     const navigate = useNavigate();
 
-    // Force logout if not student or not logged in
+    const [answers, setAnswers] = useState([]);
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const [score, setScore] = useState(0);
+    const [timeLeft, setTimeLeft] = useState(0);
+    const [submitted, setSubmitted] = useState(false);
+    const [initialized, setInitialized] = useState(false);
+
+    const question = test?.questions[currentIndex];
+
+    // Authentication check
     useEffect(() => {
         if (!user || user.role !== 'student') {
             if (user) logout();
             localStorage.setItem('redirectAfterLogin', `/test/${testId}`);
             navigate('/login');
         }
-        // eslint-disable-next-line
-    }, [user, testId]);
+    }, [user, testId, logout, navigate]);
+
+    // Load saved progress from local storage when component mounts
+    useEffect(() => {
+        if (!test || !user || initialized) return;
+
+        const savedProgress = getTestProgress(testId, user.email);
+        if (savedProgress) {
+            setAnswers(savedProgress.answers || []);
+            setCurrentIndex(savedProgress.currentIndex || 0);
+            setTimeLeft(savedProgress.timeLeft || (question?.timeLimit || 30));
+            setScore(savedProgress.score || 0);
+        } else {
+            // Initialize with default values if no saved progress
+            setTimeLeft(test.questions[0]?.timeLimit || 30);
+        }
+
+        setInitialized(true);
+    }, [test, user, testId, initialized]);
+
+    // Timer effect - only starts after initialization
+    useEffect(() => {
+        if (!question || !initialized) return;
+
+        // Only set the initial time if not already set from saved progress
+        if (timeLeft === 0) {
+            setTimeLeft(question.timeLimit || 30);
+        }
+
+        const timer = setInterval(() => {
+            setTimeLeft(prev => {
+                const newTime = prev <= 1 ? 0 : prev - 1;
+
+                // Save progress on each timer tick
+                if (user && test) {
+                    saveTestProgress(testId, user.email, {
+                        answers,
+                        currentIndex,
+                        timeLeft: newTime,
+                        score
+                    });
+                }
+
+                if (newTime === 0) {
+                    clearInterval(timer);
+                    handleNext(); // Auto-proceed to next question
+                }
+
+                return newTime;
+            });
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [currentIndex, initialized]);
+
+    const handleAnswer = (value) => {
+        const updated = [...answers];
+        updated[currentIndex] = value;
+        setAnswers(updated);
+
+        // Save progress when answer changes
+        if (user && test) {
+            saveTestProgress(testId, user.email, {
+                answers: updated,
+                currentIndex,
+                timeLeft,
+                score
+            });
+        }
+    };
+
+    const evaluateAnswer = () => {
+        const q = question;
+        const userAns = answers[currentIndex];
+        let isCorrect = false;
+
+        if (q.type === 'single') {
+            isCorrect = parseInt(q.answer[0], 10) === parseInt(userAns, 10);
+        } else if (q.type === 'multiple') {
+            const correct = (q.answer || []).sort().join(',');
+            const userStr = (userAns || []).sort().join(',');
+            isCorrect = correct === userStr && userStr.length > 0;
+        } else if (q.type === 'match') {
+            const correct = q.matches.map(pair => pair.right.trim().toLowerCase());
+            const userArr = (userAns || []).map(a => (a || '').trim().toLowerCase());
+            isCorrect = correct.length === userArr.length && correct.every((a, i) => a === userArr[i]);
+        } else if (q.type === 'text') {
+            isCorrect = (q.answer[0] || '').trim().toLowerCase() === (userAns || '').trim().toLowerCase();
+        }
+
+        if (isCorrect) setScore(prev => prev + (q.points || 1));
+    };
+
+    const handleNext = () => {
+        evaluateAnswer();
+        if (currentIndex + 1 < test.questions.length) {
+            const nextIndex = currentIndex + 1;
+            setCurrentIndex(nextIndex);
+
+            // Set time for next question
+            setTimeLeft(test.questions[nextIndex].timeLimit || 30);
+
+            // Save progress
+            if (user) {
+                saveTestProgress(testId, user.email, {
+                    answers,
+                    currentIndex: nextIndex,
+                    timeLeft: test.questions[nextIndex].timeLimit || 30,
+                    score
+                });
+            }
+        } else {
+            const sessionId = Math.random().toString(36).slice(2, 10);
+            saveSession({ id: sessionId, testId, student: user.email, answers, score });
+
+            // Clear progress after submission
+            if (user) {
+                localStorage.removeItem(`test_progress_${testId}_${user.email}`);
+            }
+
+            setSubmitted(true);
+            setTimeout(() => navigate(`/result/${sessionId}`), 1000);
+        }
+    };
+
+    // Handle checkbox changes for multiple choice questions
+    const handleCheckboxChange = (idx) => {
+        const currentAnswer = answers[currentIndex] || [];
+        const updated = [...currentAnswer];
+
+        // Toggle selected option
+        const existingIndex = updated.indexOf(idx);
+        if (existingIndex === -1) {
+            updated.push(idx);
+        } else {
+            updated.splice(existingIndex, 1);
+        }
+
+        handleAnswer(updated);
+    };
+
+    // Check if an option is selected in multiple choice
+    const isChecked = (idx) => {
+        const currentAnswer = answers[currentIndex] || [];
+        return currentAnswer.includes(idx);
+    };
 
     if (!test) return <div>Test not found.</div>;
-
-    const grouped = groupQuestionsByTopic(test.questions);
-
-    const handleChange = (qIdx, value) => {
-        const updated = [...answers];
-        updated[qIdx] = value;
-        setAnswers(updated);
-    };
-
-    const handleMultipleChange = (qIdx, optIdx) => {
-        const updated = [...answers];
-        const arr = updated[qIdx] || [];
-        if (arr.includes(optIdx)) {
-            updated[qIdx] = arr.filter(i => i !== optIdx);
-        } else {
-            updated[qIdx] = [...arr, optIdx];
-        }
-        setAnswers(updated);
-    };
-
-    // For matching: ensure each right-side value can only be selected once per question
-    const handleMatchDropdownChange = (qIdx, pairIdx, value) => {
-        const updated = [...answers];
-        // Prevent duplicate selection in the same question
-        if (updated[qIdx].includes(value) && updated[qIdx][pairIdx] !== value) {
-            // Optionally, show a warning or just ignore
-            return;
-        }
-        updated[qIdx][pairIdx] = value;
-        setAnswers(updated);
-    };
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        let score = 0;
-        test.questions.forEach((q, idx) => {
-            if (q.type === 'single') {
-                if (parseInt(q.answer[0], 10) === parseInt(answers[idx], 10)) score++;
-            } else if (q.type === 'multiple') {
-                const correct = (q.answer || []).sort().join(',');
-                const userAns = (answers[idx] || []).sort().join(',');
-                if (correct === userAns && userAns.length > 0) score++;
-            } else if (q.type === 'match') {
-                // For matching, check if all pairs are correct
-                const correct = q.matches.map(pair => pair.right.trim().toLowerCase());
-                const userAns = (answers[idx] || []).map(a => (a || '').trim().toLowerCase());
-                if (
-                    correct.length === userAns.length &&
-                    correct.every((ans, i) => ans === userAns[i])
-                ) {
-                    score++;
-                }
-            } else if (q.type === 'text') {
-                if ((q.answer[0] || '').trim().toLowerCase() === (answers[idx] || '').trim().toLowerCase()) score++;
-            }
-        });
-        const sessionId = Math.random().toString(36).slice(2, 10);
-        saveSession({ id: sessionId, testId, student: user.email, answers, score });
-        setSubmitted(true);
-        setTimeout(() => navigate(`/result/${sessionId}`), 1000);
-    };
+    if (submitted) return <div>Submitting...</div>;
+    if (!initialized) return <div>Loading test...</div>;
 
     return (
         <div style={{ maxWidth: 800, margin: '40px auto' }}>
-            <h2>Test: {test.title}</h2>
-            <form onSubmit={handleSubmit}>
-                {Object.entries(grouped).map(([group, qs], gIdx) => (
-                    <div key={group} style={{ marginBottom: 24 }}>
-                        <h3>{group}</h3>
-                        {qs.map((q, idx) => (
-                            <div key={q.idx} style={{ marginBottom: 16, padding: 12, border: '1px solid #eee', borderRadius: 8 }}>
-                                <div style={{ marginBottom: 8 }}>
-                                    <b>Q{q.idx + 1}:</b> {q.q}
-                                </div>
-                                {/* Single Choice */}
-                                {q.type === 'single' && (
-                                    <div>
-                                        {q.options.map((opt, optIdx) => (
-                                            <label key={optIdx} style={{ display: 'block', marginBottom: 4 }}>
-                                                <input
-                                                    type="radio"
-                                                    name={`single-${q.idx}`}
-                                                    checked={answers[q.idx] === optIdx}
-                                                    onChange={() => handleChange(q.idx, optIdx)}
-                                                />{' '}
-                                                {opt}
-                                            </label>
-                                        ))}
-                                    </div>
-                                )}
-                                {/* Multiple Choice */}
-                                {q.type === 'multiple' && (
-                                    <div>
-                                        {q.options.map((opt, optIdx) => (
-                                            <label key={optIdx} style={{ display: 'block', marginBottom: 4 }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={answers[q.idx]?.includes(optIdx)}
-                                                    onChange={() => handleMultipleChange(q.idx, optIdx)}
-                                                />{' '}
-                                                {opt}
-                                            </label>
-                                        ))}
-                                    </div>
-                                )}
-                                {/* Matching */}
-                                {q.type === 'match' && (
-                                    <div>
-                                        {q.matches.map((pair, pairIdx) => (
-                                            <div key={pairIdx} style={{ marginBottom: 8, display: 'flex', alignItems: 'center' }}>
-                                                <span style={{ width: 120 }}>{pair.left}</span>
-                                                <span style={{ margin: '0 8px' }}>→</span>
-                                                <select
-                                                    value={answers[q.idx][pairIdx] || ''}
-                                                    onChange={e => handleMatchDropdownChange(q.idx, pairIdx, e.target.value)}
-                                                    style={{ width: 180 }}
-                                                >
-                                                    <option value="">Select...</option>
-                                                    {q.matches.map((opt, optIdx) => (
-                                                        <option
-                                                            key={optIdx}
-                                                            value={opt.right}
-                                                            disabled={
-                                                                answers[q.idx].includes(opt.right) &&
-                                                                answers[q.idx][pairIdx] !== opt.right
-                                                            }
-                                                        >
-                                                            {opt.right}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                        ))}
-                                        <div style={{ fontSize: 12, color: '#888' }}>
-                                            Match each left item to the correct right item.
-                                        </div>
-                                    </div>
-                                )}
-                                {/* Text Answer */}
-                                {q.type === 'text' && (
-                                    <div>
-                                        <input
-                                            type="text"
-                                            value={answers[q.idx] || ''}
-                                            onChange={e => handleChange(q.idx, e.target.value)}
-                                            style={{ width: 400 }}
-                                        />
-                                    </div>
-                                )}
-                            </div>
-                        ))}
+            <h2>{test.title}</h2>
+            <div style={{ marginBottom: 12 }}>
+                <b>Question {currentIndex + 1}/{test.questions.length}</b> | Points: {question.points} | Time Left: {timeLeft}s
+            </div>
+
+            <div style={{ padding: 12, border: '1px solid #ccc', borderRadius: 8 }}>
+                <div style={{ marginBottom: 8 }}>{question.q}</div>
+
+                {/* Single choice questions */}
+                {question.type === 'single' && question.options.map((opt, idx) => (
+                    <label key={idx} style={{ display: 'block', marginBottom: 8 }}>
+                        <input
+                            type="radio"
+                            name="single"
+                            checked={answers[currentIndex] === idx}
+                            onChange={() => handleAnswer(idx)}
+                        />{' '}
+                        {opt}
+                    </label>
+                ))}
+
+                {/* Multiple choice questions */}
+                {question.type === 'multiple' && question.options.map((opt, idx) => (
+                    <label key={idx} style={{ display: 'block', marginBottom: 8 }}>
+                        <input
+                            type="checkbox"
+                            checked={isChecked(idx)}
+                            onChange={() => handleCheckboxChange(idx)}
+                        />{' '}
+                        {opt}
+                    </label>
+                ))}
+
+                {/* Text input questions */}
+                {question.type === 'text' && (
+                    <input
+                        type="text"
+                        value={answers[currentIndex] || ''}
+                        onChange={(e) => handleAnswer(e.target.value)}
+                        style={{ width: '100%', padding: 8, marginTop: 8 }}
+                    />
+                )}
+
+                {/* Matching questions */}
+                {question.type === 'match' && question.matches.map((pair, idx) => (
+                    <div key={idx} style={{ display: 'flex', marginBottom: 8, alignItems: 'center' }}>
+                        <div style={{ marginRight: 12, flex: 1 }}>{pair.left}</div>
+                        <select
+                            value={answers[currentIndex]?.[idx] || ''}
+                            onChange={(e) => {
+                                const updated = [...(answers[currentIndex] || Array(question.matches.length).fill(''))];
+                                updated[idx] = e.target.value;
+                                handleAnswer(updated);
+                            }}
+                            style={{ flex: 1 }}
+                        >
+                            <option value="">-- Select --</option>
+                            {question.matches.map((m, i) => (
+                                <option key={i} value={m.right}>
+                                    {m.right}
+                                </option>
+                            ))}
+                        </select>
                     </div>
                 ))}
-                <button type="submit" disabled={submitted}>Submit</button>
-            </form>
-            {submitted && <div>Submitting...</div>}
+
+                <button
+                    onClick={handleNext}
+                    style={{ marginTop: 12, padding: '8px 16px', backgroundColor: '#4a90e2', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}
+                >
+                    {currentIndex + 1 < test.questions.length ? 'Next' : 'Submit'}
+                </button>
+            </div>
         </div>
     );
 }
