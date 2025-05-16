@@ -15,83 +15,147 @@ export default function TakeTest() {
     const [timeLeft, setTimeLeft] = useState(0);
     const [submitted, setSubmitted] = useState(false);
     const [initialized, setInitialized] = useState(false);
+    const [authChecked, setAuthChecked] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [isAutoNavigating, setIsAutoNavigating] = useState(false);
 
     const question = test?.questions[currentIndex];
 
-    // Authentication check
     useEffect(() => {
-        if (!user || user.role !== 'student') {
-            if (user) logout();
+        if (!test) {
+            setLoading(false);
+            return;
+        }
+
+        if (!user) {
             localStorage.setItem('redirectAfterLogin', `/test/${testId}`);
             navigate('/login');
+            return;
         }
-    }, [user, testId, logout, navigate]);
 
-    // Load saved progress from local storage when component mounts
+        if (user.role !== 'student') {
+            logout();
+            localStorage.setItem('redirectAfterLogin', `/test/${testId}`);
+            navigate('/login');
+            return;
+        }
+
+        setAuthChecked(true);
+    }, [user, testId, navigate, logout, test]);
+
     useEffect(() => {
-        if (!test || !user || initialized) return;
+        if (!authChecked || !test || !user || initialized) return;
 
         const savedProgress = getTestProgress(testId, user.email);
         if (savedProgress) {
             setAnswers(savedProgress.answers || []);
             setCurrentIndex(savedProgress.currentIndex || 0);
-            setTimeLeft(savedProgress.timeLeft || (question?.timeLimit || 30));
+
+            // Use the saved time left from progress, or get it from the current question
+            const currentQuestionIndex = savedProgress.currentIndex || 0;
+            const currentQuestionTimeLimit = test.questions[currentQuestionIndex]?.timeLimit || 30;
+            setTimeLeft(savedProgress.timeLeft || currentQuestionTimeLimit);
+
             setScore(savedProgress.score || 0);
         } else {
-            // Initialize with default values if no saved progress
-            setTimeLeft(test.questions[0]?.timeLimit || 30);
+            // When starting a new test, use the first question's time limit
+            const firstQuestionTimeLimit = test.questions[0]?.timeLimit || 30;
+            setTimeLeft(firstQuestionTimeLimit);
         }
 
         setInitialized(true);
-    }, [test, user, testId, initialized]);
+        setLoading(false);
+    }, [authChecked, test, user, testId, initialized]);
 
-    // Timer effect - only starts after initialization
     useEffect(() => {
         if (!question || !initialized) return;
 
-        // Only set the initial time if not already set from saved progress
-        if (timeLeft === 0) {
-            setTimeLeft(question.timeLimit || 30);
+        // Reset any existing timers when question changes
+        let timer = null;
+
+        // Reset auto-navigation flag when question changes
+        if (timeLeft > 0) {
+            setIsAutoNavigating(false);
         }
 
-        const timer = setInterval(() => {
-            setTimeLeft(prev => {
-                const newTime = prev <= 1 ? 0 : prev - 1;
+        // Only start the timer if we have time left
+        if (timeLeft > 0) {
+            timer = setInterval(() => {
+                setTimeLeft((prev) => {
+                    if (prev <= 1) {
+                        clearInterval(timer);
+                        // Set flag to prevent cascading timer events
+                        setIsAutoNavigating(true);
+                        // Use setTimeout to ensure state is updated before proceeding
+                        setTimeout(() => handleNext(true), 100);
+                        return 0;
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
+        }
 
-                // Save progress on each timer tick
-                if (user && test) {
-                    saveTestProgress(testId, user.email, {
-                        answers,
-                        currentIndex,
-                        timeLeft: newTime,
-                        score
-                    });
-                }
+        return () => {
+            if (timer) clearInterval(timer);
+        };
+    }, [question, initialized, currentIndex, timeLeft]);
 
-                if (newTime === 0) {
-                    clearInterval(timer);
-                    handleNext(); // Auto-proceed to next question
-                }
+    const handleNext = (autoProceed = false) => {
+        // Skip if we're already in auto-navigation mode and trying to auto-proceed again
+        if (autoProceed && isAutoNavigating) {
+            return;
+        }
 
-                return newTime;
-            });
-        }, 1000);
+        if (!autoProceed) evaluateAnswer();
 
-        return () => clearInterval(timer);
-    }, [currentIndex, initialized]);
+        if (currentIndex + 1 < test.questions.length) {
+            const nextIndex = currentIndex + 1;
+
+            // Get the next question's time limit
+            const nextQuestionTimeLimit = test.questions[nextIndex].timeLimit || 30;
+
+            // First update the index
+            setCurrentIndex(nextIndex);
+
+            // Then reset the timer for the new question
+            setTimeLeft(nextQuestionTimeLimit);
+
+            // Reset the auto-navigation flag
+            setIsAutoNavigating(false);
+
+            if (user) {
+                saveTestProgress(testId, user.email, {
+                    answers,
+                    currentIndex: nextIndex,
+                    timeLeft: nextQuestionTimeLimit,
+                    score,
+                });
+            }
+        } else {
+            submitTest();
+        }
+    };
+
+    const submitTest = () => {
+        const sessionId = Math.random().toString(36).slice(2, 10);
+        saveSession({ id: sessionId, testId, student: user.email, answers, score });
+
+        localStorage.removeItem(`test_progress_${testId}_${user.email}`);
+        setSubmitted(true);
+        setTimeout(() => navigate(`/result/${sessionId}`), 1000);
+    };
 
     const handleAnswer = (value) => {
         const updated = [...answers];
         updated[currentIndex] = value;
         setAnswers(updated);
 
-        // Save progress when answer changes
-        if (user && test) {
+        if (user) {
             saveTestProgress(testId, user.email, {
                 answers: updated,
                 currentIndex,
                 timeLeft,
-                score
+                score,
             });
         }
     };
@@ -115,116 +179,68 @@ export default function TakeTest() {
             isCorrect = (q.answer[0] || '').trim().toLowerCase() === (userAns || '').trim().toLowerCase();
         }
 
-        if (isCorrect) setScore(prev => prev + (q.points || 1));
+        if (isCorrect) setScore((prev) => prev + (q.points || 1));
     };
 
-    const handleNext = () => {
-        evaluateAnswer();
-        if (currentIndex + 1 < test.questions.length) {
-            const nextIndex = currentIndex + 1;
-            setCurrentIndex(nextIndex);
+    const isChecked = (idx) => answers[currentIndex]?.includes(idx);
 
-            // Set time for next question
-            setTimeLeft(test.questions[nextIndex].timeLimit || 30);
-
-            // Save progress
-            if (user) {
-                saveTestProgress(testId, user.email, {
-                    answers,
-                    currentIndex: nextIndex,
-                    timeLeft: test.questions[nextIndex].timeLimit || 30,
-                    score
-                });
-            }
-        } else {
-            const sessionId = Math.random().toString(36).slice(2, 10);
-            saveSession({ id: sessionId, testId, student: user.email, answers, score });
-
-            // Clear progress after submission
-            if (user) {
-                localStorage.removeItem(`test_progress_${testId}_${user.email}`);
-            }
-
-            setSubmitted(true);
-            setTimeout(() => navigate(`/result/${sessionId}`), 1000);
-        }
-    };
-
-    // Handle checkbox changes for multiple choice questions
-    const handleCheckboxChange = (idx) => {
-        const currentAnswer = answers[currentIndex] || [];
-        const updated = [...currentAnswer];
-
-        // Toggle selected option
-        const existingIndex = updated.indexOf(idx);
-        if (existingIndex === -1) {
-            updated.push(idx);
-        } else {
-            updated.splice(existingIndex, 1);
-        }
-
-        handleAnswer(updated);
-    };
-
-    // Check if an option is selected in multiple choice
-    const isChecked = (idx) => {
-        const currentAnswer = answers[currentIndex] || [];
-        return currentAnswer.includes(idx);
-    };
-
+    if (loading) return <div>Loading...</div>;
     if (!test) return <div>Test not found.</div>;
-    if (submitted) return <div>Submitting...</div>;
-    if (!initialized) return <div>Loading test...</div>;
+    if (!authChecked) return <div>Redirecting to login...</div>;
+    if (submitted) return <div>Submitting your answers...</div>;
+    if (!initialized) return <div>Preparing your test...</div>;
 
     return (
-        <div style={{ maxWidth: 800, margin: '40px auto' }}>
+        <div>
             <h2>{test.title}</h2>
-            <div style={{ marginBottom: 12 }}>
-                <b>Question {currentIndex + 1}/{test.questions.length}</b> | Points: {question.points} | Time Left: {timeLeft}s
+            <div>
+                <strong>Question {currentIndex + 1}/{test.questions.length}</strong>
+                <div>Points: {question.points}</div>
+                <div>Time Left: {timeLeft}s</div>
             </div>
 
-            <div style={{ padding: 12, border: '1px solid #ccc', borderRadius: 8 }}>
-                <div style={{ marginBottom: 8 }}>{question.q}</div>
-
-                {/* Single choice questions */}
+            <div>
+                <div>{question.q}</div>
                 {question.type === 'single' && question.options.map((opt, idx) => (
-                    <label key={idx} style={{ display: 'block', marginBottom: 8 }}>
+                    <label key={idx}>
                         <input
                             type="radio"
                             name="single"
                             checked={answers[currentIndex] === idx}
                             onChange={() => handleAnswer(idx)}
-                        />{' '}
+                        />
                         {opt}
                     </label>
                 ))}
 
-                {/* Multiple choice questions */}
                 {question.type === 'multiple' && question.options.map((opt, idx) => (
-                    <label key={idx} style={{ display: 'block', marginBottom: 8 }}>
+                    <label key={idx}>
                         <input
                             type="checkbox"
                             checked={isChecked(idx)}
-                            onChange={() => handleCheckboxChange(idx)}
-                        />{' '}
+                            onChange={() => {
+                                const updated = [...(answers[currentIndex] || [])];
+                                const index = updated.indexOf(idx);
+                                if (index === -1) updated.push(idx);
+                                else updated.splice(index, 1);
+                                handleAnswer(updated);
+                            }}
+                        />
                         {opt}
                     </label>
                 ))}
 
-                {/* Text input questions */}
                 {question.type === 'text' && (
                     <input
                         type="text"
                         value={answers[currentIndex] || ''}
                         onChange={(e) => handleAnswer(e.target.value)}
-                        style={{ width: '100%', padding: 8, marginTop: 8 }}
                     />
                 )}
 
-                {/* Matching questions */}
                 {question.type === 'match' && question.matches.map((pair, idx) => (
-                    <div key={idx} style={{ display: 'flex', marginBottom: 8, alignItems: 'center' }}>
-                        <div style={{ marginRight: 12, flex: 1 }}>{pair.left}</div>
+                    <div key={idx}>
+                        {pair.left} →
                         <select
                             value={answers[currentIndex]?.[idx] || ''}
                             onChange={(e) => {
@@ -232,23 +248,17 @@ export default function TakeTest() {
                                 updated[idx] = e.target.value;
                                 handleAnswer(updated);
                             }}
-                            style={{ flex: 1 }}
                         >
                             <option value="">-- Select --</option>
                             {question.matches.map((m, i) => (
-                                <option key={i} value={m.right}>
-                                    {m.right}
-                                </option>
+                                <option key={i} value={m.right}>{m.right}</option>
                             ))}
                         </select>
                     </div>
                 ))}
 
-                <button
-                    onClick={handleNext}
-                    style={{ marginTop: 12, padding: '8px 16px', backgroundColor: '#4a90e2', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}
-                >
-                    {currentIndex + 1 < test.questions.length ? 'Next' : 'Submit'}
+                <button onClick={() => handleNext(false)}>
+                    {currentIndex + 1 < test.questions.length ? 'Next Question' : 'Submit Test'}
                 </button>
             </div>
         </div>
