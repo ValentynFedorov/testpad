@@ -2,6 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getTestById, saveSession, getTestProgress, saveTestProgress } from '../utils/storage';
+import styles from './TakeTest.module.css';
 
 export default function TakeTest() {
     const { testId } = useParams();
@@ -50,15 +51,11 @@ export default function TakeTest() {
         if (savedProgress) {
             setAnswers(savedProgress.answers || []);
             setCurrentIndex(savedProgress.currentIndex || 0);
-
-            // Use the saved time left from progress, or get it from the current question
             const currentQuestionIndex = savedProgress.currentIndex || 0;
             const currentQuestionTimeLimit = test.questions[currentQuestionIndex]?.timeLimit || 30;
             setTimeLeft(savedProgress.timeLeft || currentQuestionTimeLimit);
-
             setScore(savedProgress.score || 0);
         } else {
-            // When starting a new test, use the first question's time limit
             const firstQuestionTimeLimit = test.questions[0]?.timeLimit || 30;
             setTimeLeft(firstQuestionTimeLimit);
         }
@@ -70,23 +67,18 @@ export default function TakeTest() {
     useEffect(() => {
         if (!question || !initialized) return;
 
-        // Reset any existing timers when question changes
         let timer = null;
 
-        // Reset auto-navigation flag when question changes
         if (timeLeft > 0) {
             setIsAutoNavigating(false);
         }
 
-        // Only start the timer if we have time left
         if (timeLeft > 0) {
             timer = setInterval(() => {
                 setTimeLeft((prev) => {
                     if (prev <= 1) {
                         clearInterval(timer);
-                        // Set flag to prevent cascading timer events
                         setIsAutoNavigating(true);
-                        // Use setTimeout to ensure state is updated before proceeding
                         setTimeout(() => handleNext(true), 100);
                         return 0;
                     }
@@ -101,7 +93,6 @@ export default function TakeTest() {
     }, [question, initialized, currentIndex, timeLeft]);
 
     const handleNext = (autoProceed = false) => {
-        // Skip if we're already in auto-navigation mode and trying to auto-proceed again
         if (autoProceed && isAutoNavigating) {
             return;
         }
@@ -110,17 +101,9 @@ export default function TakeTest() {
 
         if (currentIndex + 1 < test.questions.length) {
             const nextIndex = currentIndex + 1;
-
-            // Get the next question's time limit
             const nextQuestionTimeLimit = test.questions[nextIndex].timeLimit || 30;
-
-            // First update the index
             setCurrentIndex(nextIndex);
-
-            // Then reset the timer for the new question
             setTimeLeft(nextQuestionTimeLimit);
-
-            // Reset the auto-navigation flag
             setIsAutoNavigating(false);
 
             if (user) {
@@ -184,25 +167,25 @@ export default function TakeTest() {
 
     const isChecked = (idx) => answers[currentIndex]?.includes(idx);
 
-    if (loading) return <div>Loading...</div>;
-    if (!test) return <div>Test not found.</div>;
-    if (!authChecked) return <div>Redirecting to login...</div>;
-    if (submitted) return <div>Submitting your answers...</div>;
-    if (!initialized) return <div>Preparing your test...</div>;
+    if (loading) return <div className={styles.loading}>Loading...</div>;
+    if (!test) return <div className={styles.message}>Test not found.</div>;
+    if (!authChecked) return <div className={styles.message}>Redirecting to login...</div>;
+    if (submitted) return <div className={styles.message}>Submitting your answers...</div>;
+    if (!initialized) return <div className={styles.message}>Preparing your test...</div>;
 
     return (
-        <div>
-            <h2>{test.title}</h2>
-            <div>
+        <div className={styles.container}>
+            <h2 className={styles.title}>{test.title}</h2>
+            <div className={styles.header}>
                 <strong>Question {currentIndex + 1}/{test.questions.length}</strong>
                 <div>Points: {question.points}</div>
                 <div>Time Left: {timeLeft}s</div>
             </div>
 
-            <div>
-                <div>{question.q}</div>
+            <div className={styles.content}>
+                <div className={styles.question}>{question.q}</div>
                 {question.type === 'single' && question.options.map((opt, idx) => (
-                    <label key={idx}>
+                    <label key={idx} className={styles.option}>
                         <input
                             type="radio"
                             name="single"
@@ -214,7 +197,7 @@ export default function TakeTest() {
                 ))}
 
                 {question.type === 'multiple' && question.options.map((opt, idx) => (
-                    <label key={idx}>
+                    <label key={idx} className={styles.option}>
                         <input
                             type="checkbox"
                             checked={isChecked(idx)}
@@ -235,11 +218,12 @@ export default function TakeTest() {
                         type="text"
                         value={answers[currentIndex] || ''}
                         onChange={(e) => handleAnswer(e.target.value)}
+                        className={styles.input}
                     />
                 )}
 
                 {question.type === 'match' && question.matches.map((pair, idx) => (
-                    <div key={idx}>
+                    <div key={idx} className={styles.match}>
                         {pair.left} →
                         <select
                             value={answers[currentIndex]?.[idx] || ''}
@@ -248,6 +232,7 @@ export default function TakeTest() {
                                 updated[idx] = e.target.value;
                                 handleAnswer(updated);
                             }}
+                            className={styles.select}
                         >
                             <option value="">-- Select --</option>
                             {question.matches.map((m, i) => (
@@ -257,7 +242,7 @@ export default function TakeTest() {
                     </div>
                 ))}
 
-                <button onClick={() => handleNext(false)}>
+                <button onClick={() => handleNext(false)} className={styles.button}>
                     {currentIndex + 1 < test.questions.length ? 'Next Question' : 'Submit Test'}
                 </button>
             </div>
