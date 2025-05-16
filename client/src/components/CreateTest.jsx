@@ -21,24 +21,38 @@ export default function CreateTest() {
         showOneQuestionAtTime: true,
         randomizeQuestions: true,
         randomSelectionRules: [],
-        enableTimeLimit: false,
+        enableTimeLimit: false, // New flag for time limits
     });
     const { user } = useAuth();
     const navigate = useNavigate();
 
     const handleAddTopic = () => {
-        if (currentTopic && !topics.includes(currentTopic)) {
-            const newTopics = [...topics, currentTopic];
+        if (currentTopic.trim() && !topics.includes(currentTopic.trim())) {
+            const newTopics = [...topics, currentTopic.trim()];
             setTopics(newTopics);
             setTestSettings({
                 ...testSettings,
                 randomSelectionRules: [
                     ...testSettings.randomSelectionRules,
-                    { topic: currentTopic, count: 1 }
+                    { topic: currentTopic.trim(), count: 1 }
                 ]
             });
             setCurrentTopic('');
         }
+    };
+
+    const handleRemoveTopic = (topicToRemove) => {
+        const newTopics = topics.filter(topic => topic !== topicToRemove);
+        setTopics(newTopics);
+        setTestSettings({
+            ...testSettings,
+            randomSelectionRules: testSettings.randomSelectionRules.filter(
+                rule => rule.topic !== topicToRemove
+            )
+        });
+        setQuestions(questions.map(q =>
+            q.topic === topicToRemove ? {...q, topic: ''} : q
+        ));
     };
 
     const handleRandomSelectionRuleChange = (topicIndex, count) => {
@@ -56,11 +70,11 @@ export default function CreateTest() {
             {
                 q: '',
                 type: 'single',
-                options: [''],
+                options: ['', ''],
                 answer: [],
                 topic: topics.length > 0 ? topics[0] : '',
                 matches: [{ left: '', right: '' }],
-                points: 1.0,
+                points: 1.0, // Changed to float
                 timeLimit: 30,
             },
         ]);
@@ -72,7 +86,7 @@ export default function CreateTest() {
 
         if (field === 'type') {
             if (value === 'single' || value === 'multiple') {
-                updated[idx].options = [''];
+                updated[idx].options = ['', ''];
                 updated[idx].answer = [];
                 updated[idx].matches = [{ left: '', right: '' }];
             } else if (value === 'match') {
@@ -103,8 +117,8 @@ export default function CreateTest() {
     const handleRemoveOption = (qIdx, optIdx) => {
         const updated = [...questions];
         updated[qIdx].options.splice(optIdx, 1);
-        updated[qIdx].answer = updated[qIdx].answer.filter(a => a !== optIdx && (a < optIdx || a > optIdx));
-        updated[qIdx].answer = updated[qIdx].answer.map(a => (a > optIdx ? a - 1 : a));
+        updated[qIdx].answer = updated[qIdx].answer.filter(a => a !== optIdx);
+        updated[qIdx].answer = updated[qIdx].answer.map(a => a > optIdx ? a - 1 : a);
         setQuestions(updated);
     };
 
@@ -204,16 +218,17 @@ export default function CreateTest() {
             }
         }
 
-        if (!testSettings.enableTimeLimit) {
-            questions.forEach(q => { q.timeLimit = undefined; });
-        }
+        // Remove time limits if not enabled
+        const finalQuestions = testSettings.enableTimeLimit
+            ? questions
+            : questions.map(q => ({ ...q, timeLimit: undefined }));
 
         const id = Math.random().toString(36).slice(2, 10);
         saveTest({
             id,
             title,
             description,
-            questions,
+            questions: finalQuestions,
             creator: user.email,
             settings: testSettings
         });
@@ -225,30 +240,35 @@ export default function CreateTest() {
         <div className={styles.container}>
             <h2 className={styles.title}>Create New Test</h2>
 
-            <form onSubmit={handleSubmit}>
-                <div className={styles.formSection}>
-                    <h3>Basic Information</h3>
-                    <input
-                        placeholder="Test Title"
-                        value={title}
-                        onChange={e => setTitle(e.target.value)}
-                        className={styles.formInput}
-                        required
-                    />
-                    <textarea
-                        placeholder="Test Description (optional)"
-                        value={description}
-                        onChange={e => setDescription(e.target.value)}
-                        className={styles.formTextarea}
-                        rows={3}
-                    />
+            <form onSubmit={handleSubmit} className={styles.form}>
+                {/* Basic Info Section */}
+                <div className={styles.section}>
+                    <h3 className={styles.sectionTitle}>Basic Information</h3>
+                    <div className={styles.inputGroup}>
+                        <label>Test Title*</label>
+                        <input
+                            value={title}
+                            onChange={e => setTitle(e.target.value)}
+                            className={styles.input}
+                            required
+                        />
+                    </div>
+                    <div className={styles.inputGroup}>
+                        <label>Description</label>
+                        <textarea
+                            value={description}
+                            onChange={e => setDescription(e.target.value)}
+                            className={styles.textarea}
+                            rows={3}
+                        />
+                    </div>
                 </div>
 
-                <div className={styles.formSection}>
-                    <h3>Test Settings</h3>
-
-                    <div className={styles.setting}>
-                        <label>
+                {/* Settings Section */}
+                <div className={styles.section}>
+                    <h3 className={styles.sectionTitle}>Test Settings</h3>
+                    <div className={styles.settingsGrid}>
+                        <label className={styles.checkboxLabel}>
                             <input
                                 type="checkbox"
                                 checked={testSettings.showOneQuestionAtTime}
@@ -256,10 +276,7 @@ export default function CreateTest() {
                             />
                             Show one question at a time
                         </label>
-                    </div>
-
-                    <div className={styles.setting}>
-                        <label>
+                        <label className={styles.checkboxLabel}>
                             <input
                                 type="checkbox"
                                 checked={testSettings.randomizeQuestions}
@@ -267,108 +284,317 @@ export default function CreateTest() {
                             />
                             Randomize question order
                         </label>
-                    </div>
-
-                    <div className={styles.setting}>
-                        <label>
+                        <label className={styles.checkboxLabel}>
                             <input
                                 type="checkbox"
                                 checked={testSettings.enableTimeLimit}
                                 onChange={e => handleSettingChange('enableTimeLimit', e.target.checked)}
                             />
-                            Enable Time Limits for Questions
+                            Enable time limits
                         </label>
                     </div>
                 </div>
 
-                {/* You can add topic UI here */}
+                {/* Topics Section */}
+                <div className={styles.section}>
+                    <h3 className={styles.sectionTitle}>Topics</h3>
+                    <div className={styles.topicInputContainer}>
+                        <input
+                            placeholder="Enter topic name"
+                            value={currentTopic}
+                            onChange={e => setCurrentTopic(e.target.value)}
+                            className={styles.input}
+                        />
+                        <button
+                            type="button"
+                            onClick={handleAddTopic}
+                            className={styles.addButton}
+                            disabled={!currentTopic.trim()}
+                        >
+                            Add Topic
+                        </button>
+                    </div>
 
-                <div className={styles.formSection}>
-                    <h3>Questions</h3>
-
-                    {questions.map((q, idx) => (
-                        <div key={idx} className={styles.questionCard}>
-                            <div className={styles.questionHeader}>
-                                <h4>Question {idx + 1}</h4>
-                                <button
-                                    type="button"
-                                    onClick={() => handleRemoveQuestion(idx)}
-                                    className={styles.buttonRemove}
-                                >
-                                    Remove
-                                </button>
+                    {topics.length > 0 && (
+                        <div className={styles.topicsContainer}>
+                            <div className={styles.topicsList}>
+                                {topics.map((topic, idx) => (
+                                    <div key={topic} className={styles.topicItem}>
+                                        <span>{topic}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleRemoveTopic(topic)}
+                                            className={styles.removeButton}
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
+                                ))}
                             </div>
 
-                            <div className={styles.questionContent}>
-                                <input
-                                    placeholder="Question text"
-                                    value={q.q}
-                                    onChange={e => handleQuestionChange(idx, 'q', e.target.value)}
-                                    className={styles.questionInput}
-                                    required
-                                />
-
-                                <div className={styles.questionSettings}>
-                                    <select
-                                        value={q.type}
-                                        onChange={e => handleQuestionChange(idx, 'type', e.target.value)}
-                                        className={styles.select}
-                                    >
-                                        {QUESTION_TYPES.map(opt => (
-                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                        ))}
-                                    </select>
-
-                                    <select
-                                        value={q.topic}
-                                        onChange={e => handleTopicChange(idx, e.target.value)}
-                                        className={styles.select}
-                                    >
-                                        <option value="">No Topic</option>
-                                        {topics.map(topic => (
-                                            <option key={topic} value={topic}>{topic}</option>
-                                        ))}
-                                    </select>
-
-                                    <input
-                                        type="number"
-                                        min="0.1"
-                                        step="0.1"
-                                        value={q.points}
-                                        onChange={e => handleQuestionChange(idx, 'points', parseFloat(e.target.value) || 0.1)}
-                                        className={styles.numberInput}
-                                    />
-
-                                    {testSettings.enableTimeLimit && (
+                            <div className={styles.rulesSection}>
+                                <h4>Random Selection Rules</h4>
+                                {testSettings.randomSelectionRules.map((rule, idx) => (
+                                    <div key={idx} className={styles.ruleItem}>
+                                        <span>{rule.topic}:</span>
                                         <input
                                             type="number"
-                                            min="5"
-                                            value={q.timeLimit}
-                                            onChange={e => handleQuestionChange(idx, 'timeLimit', parseInt(e.target.value) || 30)}
+                                            min="1"
+                                            value={rule.count}
+                                            onChange={e => handleRandomSelectionRuleChange(idx, e.target.value)}
                                             className={styles.numberInput}
                                         />
-                                    )}
-                                </div>
-
-                                {/* Here you can add option, matches, answers UI */}
-
+                                        <span>questions</span>
+                                    </div>
+                                ))}
                             </div>
                         </div>
-                    ))}
+                    )}
+                </div>
+
+                {/* Questions Section */}
+                <div className={styles.section}>
+                    <h3 className={styles.sectionTitle}>Questions</h3>
+
+                    {questions.length === 0 ? (
+                        <p className={styles.emptyMessage}>No questions added yet</p>
+                    ) : (
+                        <div className={styles.questionsList}>
+                            {questions.map((q, idx) => (
+                                <div key={idx} className={styles.questionCard}>
+                                    <div className={styles.questionHeader}>
+                                        <h4>Question {idx + 1}</h4>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleRemoveQuestion(idx)}
+                                            className={styles.removeButton}
+                                        >
+                                            Remove Question
+                                        </button>
+                                    </div>
+
+                                    <div className={styles.questionBody}>
+                                        <div className={styles.inputGroup}>
+                                            <label>Question Text*</label>
+                                            <input
+                                                value={q.q}
+                                                onChange={e => handleQuestionChange(idx, 'q', e.target.value)}
+                                                className={styles.input}
+                                                required
+                                            />
+                                        </div>
+
+                                        <div className={styles.questionMeta}>
+                                            <div className={styles.inputGroup}>
+                                                <label>Type</label>
+                                                <select
+                                                    value={q.type}
+                                                    onChange={e => handleQuestionChange(idx, 'type', e.target.value)}
+                                                    className={styles.select}
+                                                >
+                                                    {QUESTION_TYPES.map(opt => (
+                                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+
+                                            <div className={styles.inputGroup}>
+                                                <label>Topic</label>
+                                                <select
+                                                    value={q.topic}
+                                                    onChange={e => handleTopicChange(idx, e.target.value)}
+                                                    className={styles.select}
+                                                >
+                                                    <option value="">No Topic</option>
+                                                    {topics.map(topic => (
+                                                        <option key={topic} value={topic}>{topic}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+
+                                            <div className={styles.inputGroup}>
+                                                <label>Points*</label>
+                                                <input
+                                                    type="number"
+                                                    min="0.1"
+                                                    step="0.1"
+                                                    value={q.points}
+                                                    onChange={e => handleQuestionChange(idx, 'points', parseFloat(e.target.value) || 0.1)}
+                                                    className={styles.numberInput}
+                                                />
+                                            </div>
+
+                                            {testSettings.enableTimeLimit && (
+                                                <div className={styles.inputGroup}>
+                                                    <label>Time Limit (sec)*</label>
+                                                    <input
+                                                        type="number"
+                                                        min="5"
+                                                        value={q.timeLimit}
+                                                        onChange={e => handleQuestionChange(idx, 'timeLimit', parseInt(e.target.value) || 30)}
+                                                        className={styles.numberInput}
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Question Type Specific Content */}
+                                        {q.type === 'single' && (
+                                            <div className={styles.optionsSection}>
+                                                <label>Options (select one correct answer)</label>
+                                                {q.options.map((opt, optIdx) => (
+                                                    <div key={optIdx} className={styles.optionRow}>
+                                                        <input
+                                                            type="text"
+                                                            value={opt}
+                                                            onChange={e => handleOptionChange(idx, optIdx, e.target.value)}
+                                                            className={styles.optionInput}
+                                                            placeholder={`Option ${optIdx + 1}`}
+                                                        />
+                                                        <input
+                                                            type="radio"
+                                                            name={`question-${idx}-answer`}
+                                                            checked={q.answer.includes(optIdx)}
+                                                            onChange={() => handleAnswerChange(idx, [optIdx])}
+                                                            className={styles.radio}
+                                                        />
+                                                        {q.options.length > 1 && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleRemoveOption(idx, optIdx)}
+                                                                className={styles.smallButton}
+                                                            >
+                                                                ×
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleAddOption(idx)}
+                                                    className={styles.addButton}
+                                                >
+                                                    Add Option
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {q.type === 'multiple' && (
+                                            <div className={styles.optionsSection}>
+                                                <label>Options (select all correct answers)</label>
+                                                {q.options.map((opt, optIdx) => (
+                                                    <div key={optIdx} className={styles.optionRow}>
+                                                        <input
+                                                            type="text"
+                                                            value={opt}
+                                                            onChange={e => handleOptionChange(idx, optIdx, e.target.value)}
+                                                            className={styles.optionInput}
+                                                            placeholder={`Option ${optIdx + 1}`}
+                                                        />
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={q.answer.includes(optIdx)}
+                                                            onChange={() => {
+                                                                const newAnswer = q.answer.includes(optIdx)
+                                                                    ? q.answer.filter(a => a !== optIdx)
+                                                                    : [...q.answer, optIdx];
+                                                                handleAnswerChange(idx, newAnswer);
+                                                            }}
+                                                            className={styles.checkbox}
+                                                        />
+                                                        {q.options.length > 1 && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleRemoveOption(idx, optIdx)}
+                                                                className={styles.smallButton}
+                                                            >
+                                                                ×
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleAddOption(idx)}
+                                                    className={styles.addButton}
+                                                >
+                                                    Add Option
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {q.type === 'match' && (
+                                            <div className={styles.matchingSection}>
+                                                <label>Matching Pairs</label>
+                                                {q.matches.map((match, mIdx) => (
+                                                    <div key={mIdx} className={styles.matchRow}>
+                                                        <input
+                                                            type="text"
+                                                            value={match.left}
+                                                            onChange={e => handleMatchChange(idx, mIdx, 'left', e.target.value)}
+                                                            className={styles.matchInput}
+                                                            placeholder="Left item"
+                                                        />
+                                                        <span className={styles.matchArrow}>→</span>
+                                                        <input
+                                                            type="text"
+                                                            value={match.right}
+                                                            onChange={e => handleMatchChange(idx, mIdx, 'right', e.target.value)}
+                                                            className={styles.matchInput}
+                                                            placeholder="Right item"
+                                                        />
+                                                        {q.matches.length > 1 && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleRemoveMatch(idx, mIdx)}
+                                                                className={styles.smallButton}
+                                                            >
+                                                                ×
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleAddMatch(idx)}
+                                                    className={styles.addButton}
+                                                >
+                                                    Add Pair
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {q.type === 'text' && (
+                                            <div className={styles.textAnswerSection}>
+                                                <label>Correct Answer</label>
+                                                <input
+                                                    type="text"
+                                                    value={q.answer[0] || ''}
+                                                    onChange={e => handleAnswerChange(idx, [e.target.value])}
+                                                    className={styles.input}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
 
                     <button
                         type="button"
                         onClick={handleAddQuestion}
-                        className={styles.buttonPrimary}
+                        className={styles.addButton}
                     >
                         Add Question
                     </button>
                 </div>
 
-                <div className={styles.formSection}>
+                {/* Submit Section */}
+                <div className={styles.submitSection}>
                     <button
                         type="submit"
-                        className={styles.buttonSubmit}
+                        className={styles.submitButton}
                         disabled={questions.length === 0}
                     >
                         Save Test
