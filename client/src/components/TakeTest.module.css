@@ -79,3 +79,23 @@
     margin-top: 50px;
     color: #666;
 }
+.mathText {
+    line-height: 1.6;
+    font-size: 16px;
+}
+
+.mathText .katex {
+    font-size: 1.1em;
+    margin: 0 2px;
+}
+
+.questionText {
+    margin-bottom: 20px;
+    white-space: pre-wrap;
+}
+
+.optionText {
+    display: inline-block;
+    vertical-align: middle;
+    margin-left: 8px;
+}

@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getTestById, saveSession, getTestProgress, saveTestProgress } from '../utils/storage';
 import styles from './TakeTest.module.css';
+import { BlockMath, InlineMath } from 'react-katex';
+import 'katex/dist/katex.min.css';
 
 export default function TakeTest() {
     const { testId } = useParams();
@@ -91,6 +93,29 @@ export default function TakeTest() {
             if (timer) clearInterval(timer);
         };
     }, [question, initialized, currentIndex, timeLeft]);
+
+    const renderTextWithMath = (text) => {
+        if (!text) return null;
+
+        // Розділяємо текст на частини: звичайний текст і формули
+        const parts = text.split(/(\$[^$]+\$)/g);
+
+        return parts.map((part, i) => {
+            if (part.startsWith('$') && part.endsWith('$')) {
+                // Це формула - обробимо через KaTeX
+                const formula = part.slice(1, -1);
+                try {
+                    return <InlineMath key={i} math={formula} />;
+                } catch (e) {
+                    return <span key={i} style={{color: 'red'}}>{`[LaTeX Error: ${part}]`}</span>;
+                }
+            } else if (part) {
+                // Це звичайний текст
+                return <span key={i}>{part}</span>;
+            }
+            return null;
+        });
+    };
 
     const handleNext = (autoProceed = false) => {
         if (autoProceed && isAutoNavigating) {
@@ -183,7 +208,9 @@ export default function TakeTest() {
             </div>
 
             <div className={styles.content}>
-                <div className={styles.question}>{question.q}</div>
+                <div className={`${styles.question} ${styles.mathText}`}>
+                    {renderTextWithMath(question.q)}
+                </div>
                 {question.type === 'single' && question.options.map((opt, idx) => (
                     <label key={idx} className={styles.option}>
                         <input
@@ -192,7 +219,7 @@ export default function TakeTest() {
                             checked={answers[currentIndex] === idx}
                             onChange={() => handleAnswer(idx)}
                         />
-                        {opt}
+                        <span className={styles.optionText}>{renderTextWithMath(opt)}</span>
                     </label>
                 ))}
 
