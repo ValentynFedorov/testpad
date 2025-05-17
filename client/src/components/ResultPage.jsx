@@ -1,6 +1,28 @@
 import { useParams } from 'react-router-dom';
 import { getSessionById, getTestById } from '../utils/storage';
+import { InlineMath } from 'react-katex';
+import 'katex/dist/katex.min.css';
 import styles from './ResultPage.module.css';
+
+const renderMathText = (text) => {
+    if (!text) return null;
+
+    const parts = text.split(/(\$[^$]+\$)/g);
+
+    return parts.map((part, i) => {
+        if (part.startsWith('$') && part.endsWith('$')) {
+            const formula = part.slice(1, -1);
+            try {
+                return <InlineMath key={i} math={formula} />;
+            } catch (e) {
+                return <span key={i} style={{color: 'red'}}>{`[LaTeX Error: ${part}]`}</span>;
+            }
+        } else if (part) {
+            return <span key={i}>{part}</span>;
+        }
+        return null;
+    });
+};
 
 export default function ResultPage() {
     const { sessionId } = useParams();
@@ -8,6 +30,33 @@ export default function ResultPage() {
     const test = session ? getTestById(session.testId) : null;
 
     if (!session || !test) return <div className={styles.message}>Result not found.</div>;
+
+    // Перераховуємо бали для перевірки
+    const recalculatedScore = test.questions.reduce((sum, q, idx) => {
+        const userAnswer = session.answers[idx];
+        let isCorrect = false;
+
+        if (q.type === 'single') {
+            isCorrect = String(q.answer[0]) === String(userAnswer);
+        }
+        else if (q.type === 'multiple') {
+            const correct = [...(q.answer || [])].sort().toString();
+            const userStr = [...(userAnswer || [])].sort().toString();
+            isCorrect = correct === userStr;
+        }
+        else if (q.type === 'match') {
+            const correct = q.matches.map(pair => pair.right);
+            const userArr = userAnswer || [];
+            isCorrect = correct.length === userArr.length &&
+                correct.every((a, i) => String(a) === String(userArr[i]));
+        }
+        else if (q.type === 'text') {
+            isCorrect = (q.answer[0] || '').trim().toLowerCase() ===
+                (userAnswer || '').trim().toLowerCase();
+        }
+
+        return isCorrect ? sum + (q.points || 1) : sum;
+    }, 0);
 
     const totalPoints = test.questions.reduce((sum, q) => sum + (q.points || 1), 0);
 
@@ -20,10 +69,10 @@ export default function ResultPage() {
                     <strong>Student:</strong> {session.student}
                 </div>
                 <div>
-                    <strong>Score:</strong> {session.score} / {totalPoints} points
+                    <strong>Score:</strong> {recalculatedScore} / {totalPoints} points
                 </div>
                 <div>
-                    <strong>Percentage:</strong> {Math.round((session.score / totalPoints) * 100)}%
+                    <strong>Percentage:</strong> {Math.round((recalculatedScore / totalPoints) * 100)}%
                 </div>
                 <div>
                     <strong>Questions:</strong> {test.questions.length}
@@ -36,35 +85,38 @@ export default function ResultPage() {
                     const userAnswer = session.answers[idx];
                     let isCorrect = false;
                     let correctAnswerDisplay = '';
-
-                    if (q.type === 'single') {
-                        isCorrect = parseInt(q.answer[0], 10) === parseInt(userAnswer, 10);
-                        correctAnswerDisplay = q.options[q.answer[0]];
-                    } else if (q.type === 'multiple') {
-                        const correct = (q.answer || []).sort().join(',');
-                        const userStr = (userAnswer || []).sort().join(',');
-                        isCorrect = correct === userStr && userStr.length > 0;
-                        correctAnswerDisplay = q.answer.map(a => q.options[a]).join(', ');
-                    } else if (q.type === 'match') {
-                        const correct = q.matches.map(pair => pair.right.trim().toLowerCase());
-                        const userArr = (userAnswer || []).map(a => (a || '').trim().toLowerCase());
-                        isCorrect = correct.length === userArr.length && correct.every((a, i) => a === userArr[i]);
-                        correctAnswerDisplay = q.matches.map(m => `${m.left} → ${m.right}`).join('; ');
-                    } else if (q.type === 'text') {
-                        isCorrect = (q.answer[0] || '').trim().toLowerCase() === (userAnswer || '').trim().toLowerCase();
-                        correctAnswerDisplay = q.answer[0];
-                    }
-
                     let userAnswerDisplay = '';
+
                     if (q.type === 'single') {
-                        userAnswerDisplay = userAnswer !== undefined ? q.options[userAnswer] : 'No answer';
-                    } else if (q.type === 'multiple') {
-                        userAnswerDisplay = userAnswer ? userAnswer.map(a => q.options[a]).join(', ') : 'No answer';
-                    } else if (q.type === 'match') {
+                        isCorrect = String(q.answer[0]) === String(userAnswer);
+                        correctAnswerDisplay = q.options[q.answer[0]];
+                        userAnswerDisplay = userAnswer !== undefined && q.options[userAnswer]
+                            ? q.options[userAnswer]
+                            : 'No answer';
+                    }
+                    else if (q.type === 'multiple') {
+                        const correct = [...(q.answer || [])].sort().toString();
+                        const userStr = [...(userAnswer || [])].sort().toString();
+                        isCorrect = correct === userStr;
+                        correctAnswerDisplay = q.answer.map(a => q.options[a]).join(', ');
+                        userAnswerDisplay = userAnswer
+                            ? userAnswer.map(a => q.options[a]).join(', ')
+                            : 'No answer';
+                    }
+                    else if (q.type === 'match') {
+                        const correct = q.matches.map(pair => pair.right);
+                        const userArr = userAnswer || [];
+                        isCorrect = correct.length === userArr.length &&
+                            correct.every((a, i) => String(a) === String(userArr[i]));
+                        correctAnswerDisplay = q.matches.map(m => `${m.left} → ${m.right}`).join('; ');
                         userAnswerDisplay = userAnswer
                             ? q.matches.map((m, i) => `${m.left} → ${userAnswer[i] || '?'}`).join('; ')
                             : 'No answer';
-                    } else {
+                    }
+                    else if (q.type === 'text') {
+                        isCorrect = (q.answer[0] || '').trim().toLowerCase() ===
+                            (userAnswer || '').trim().toLowerCase();
+                        correctAnswerDisplay = q.answer[0];
                         userAnswerDisplay = userAnswer || 'No answer';
                     }
 
@@ -74,10 +126,15 @@ export default function ResultPage() {
                             className={`${styles.questionCard} ${isCorrect ? styles.correct : styles.incorrect}`}
                         >
                             <div className={styles.question}>
-                                <strong>Question {idx + 1}:</strong> {q.q}
+                                <strong>Question {idx + 1}:</strong> {renderMathText(q.q)}
                             </div>
-                            <div>
-                                <strong>Your answer:</strong> {userAnswerDisplay}
+                            <div className={styles.answerRow}>
+                                <strong>Your answer:</strong>
+                                <span className={styles.answerText}>
+                                    {typeof userAnswerDisplay === 'string'
+                                        ? renderMathText(userAnswerDisplay)
+                                        : userAnswerDisplay}
+                                </span>
                                 {isCorrect ? (
                                     <span className={styles.correctText}>✓ Correct</span>
                                 ) : (
@@ -85,8 +142,13 @@ export default function ResultPage() {
                                 )}
                             </div>
                             {!isCorrect && (
-                                <div>
-                                    <strong>Correct answer:</strong> {correctAnswerDisplay}
+                                <div className={styles.answerRow}>
+                                    <strong>Correct answer:</strong>
+                                    <span className={styles.answerText}>
+                                        {typeof correctAnswerDisplay === 'string'
+                                            ? renderMathText(correctAnswerDisplay)
+                                            : correctAnswerDisplay}
+                                    </span>
                                 </div>
                             )}
                             <div>
