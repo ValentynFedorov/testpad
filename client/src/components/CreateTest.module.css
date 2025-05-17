@@ -265,3 +265,47 @@
     color: #7f8c8d;
     padding: 20px;
 }
+/* Стилі для прев'ю тексту з формулами */
+.latexPreview {
+    margin-top: 10px;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border: 1px solid #e0e0e0;
+    line-height: 1.6;
+    font-size: 15px;
+}
+
+.latexPreview p {
+    margin: 8px 0;
+}
+
+/* Стилі для формул KaTeX */
+.katex {
+    font-size: 1.1em !important;
+    margin: 0 2px;
+}
+
+.katex-display {
+    margin: 8px 0 !important;
+    padding: 8px 0;
+}
+
+/* Стилі для рядкових формул */
+.inlineFormula {
+    display: inline;
+    vertical-align: middle;
+}
+
+/* Стилі для блочних формул */
+.blockFormula {
+    display: block;
+    margin: 10px 0;
+    text-align: center;
+}
+
+/* Стилі для тексту між формулами */
+.regularText {
+    white-space: normal;
+    display: inline;
+}

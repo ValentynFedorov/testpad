@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { saveTest } from '../utils/storage';
 import styles from './CreateTest.module.css';
+import { BlockMath, InlineMath } from 'react-katex';
+import 'katex/dist/katex.min.css';
+
 
 const QUESTION_TYPES = [
     { value: 'single', label: 'Single Choice' },
@@ -163,6 +166,44 @@ export default function CreateTest() {
             ...testSettings,
             [setting]: value
         });
+    };
+    const renderTextWithLatex = (text) => {
+        if (!text) return null;
+
+        // Розділяємо текст на блоки за подвійними новими рядками
+        const paragraphs = text.split(/\n\n+/);
+
+        return paragraphs.map((paragraph, pIdx) => (
+            <p key={pIdx}>
+                {paragraph.split(/(\$\$?[^$]+\$\$?)/g).map((part, i) => {
+                    if (part.startsWith('$$') && part.endsWith('$$')) {
+                        // Блочна формула
+                        const formula = part.slice(2, -2);
+                        return (
+                            <div key={i} className={styles.blockFormula}>
+                                <BlockMath math={formula} />
+                            </div>
+                        );
+                    } else if (part.startsWith('$') && part.endsWith('$')) {
+                        // Рядкова формула
+                        const formula = part.slice(1, -1);
+                        return (
+                            <span key={i} className={styles.inlineFormula}>
+              <InlineMath math={formula} />
+            </span>
+                        );
+                    } else if (part) {
+                        // Звичайний текст
+                        return (
+                            <span key={i} className={styles.regularText}>
+              {part}
+            </span>
+                        );
+                    }
+                    return null;
+                })}
+            </p>
+        ));
     };
 
     const handleSubmit = (e) => {
@@ -372,19 +413,27 @@ export default function CreateTest() {
                                             Remove Question
                                         </button>
                                     </div>
+                                    <div className={styles.inputGroup}>
+                                        <label>
+                                            Question Text* (supports LaTeX using <code>$...$</code>)
+                                        </label>
+                                        <textarea
+                                            value={q.q}
+                                            onChange={e => handleQuestionChange(idx, 'q', e.target.value)}
+                                            className={styles.textarea}
+                                            rows={3}
+                                            required
+                                        />
+                                        {q.q && (
+                                            <div className={styles.latexPreview}>
+                                                <strong>Preview:</strong>
+                                                <div style={{marginTop: '8px'}}>
+                                                    {renderTextWithLatex(q.q)}
+                                                </div>
+                                            </div>
+                                        )}
 
-                                    <div className={styles.questionBody}>
-                                        <div className={styles.inputGroup}>
-                                            <label>Question Text*</label>
-                                            <input
-                                                value={q.q}
-                                                onChange={e => handleQuestionChange(idx, 'q', e.target.value)}
-                                                className={styles.input}
-                                                required
-                                            />
-                                        </div>
-
-                                        <div className={styles.questionMeta}>
+                                                <div className={styles.questionMeta}>
                                             <div className={styles.inputGroup}>
                                                 <label>Type</label>
                                                 <select
