@@ -75,7 +75,7 @@ export default function TakeTest() {
             setIsAutoNavigating(false);
         }
 
-        if (timeLeft > 0) {
+        if (test.settings?.enableTimeLimit && timeLeft > 0) {
             timer = setInterval(() => {
                 setTimeLeft((prev) => {
                     if (prev <= 1) {
@@ -97,7 +97,6 @@ export default function TakeTest() {
     const renderTextWithMath = (text) => {
         if (!text) return null;
 
-        // Розділяємо текст на частини: звичайний текст і формули
         const parts = text.split(/(\$[^$]+\$)/g);
 
         return parts.map((part, i) => {

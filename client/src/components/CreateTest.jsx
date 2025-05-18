@@ -259,10 +259,25 @@ export default function CreateTest() {
             }
         }
 
-        // Remove time limits if not enabled
-        const finalQuestions = testSettings.enableTimeLimit
-            ? questions
-            : questions.map(q => ({ ...q, timeLimit: undefined }));
+        let finalQuestions = [];
+
+        for (const rule of testSettings.randomSelectionRules) {
+            const topicQuestions = questions.filter(q => q.topic === rule.topic);
+            if (topicQuestions.length < rule.count) {
+                alert(`Not enough questions in topic "${rule.topic}". You need at least ${rule.count}, but only ${topicQuestions.length} are available.`);
+                return;
+            }
+
+            // Випадковий вибір
+            const shuffled = [...topicQuestions].sort(() => 0.5 - Math.random());
+            finalQuestions.push(...shuffled.slice(0, rule.count));
+        }
+
+// Якщо timeLimit вимкнено, видаляємо з питань це поле
+        if (!testSettings.enableTimeLimit) {
+            finalQuestions = finalQuestions.map(q => ({ ...q, timeLimit: undefined }));
+        }
+
 
         const id = Math.random().toString(36).slice(2, 10);
         saveTest({

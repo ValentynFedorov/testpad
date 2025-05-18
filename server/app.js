@@ -1,32 +1,24 @@
-import express from 'express';
-import cors from 'cors';
-import bodyParser from 'body-parser';
-import authRoutes from './routes/auth.js';
-import testRoutes from './routes/tests.js';
-import questionRoutes from './routes/questions.js';
-import attemptRoutes from './routes/attempts.js';
+const express = require('express');
+const bodyParser = require('body-parser');
+const cors = require('cors');
+const authRoutes = require('./routes/authRoutes');
+const testRoutes = require('./routes/testRoutes');
+const authMiddleware = require('./middleware/authMiddleware');
 
 const app = express();
 
 // Middleware
-app.use(cors({ origin: 'http://localhost:5173' }));
+app.use(cors());
 app.use(bodyParser.json());
 
-// Маршрути
+// Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/tests', testRoutes);
-app.use('/api/questions', questionRoutes);
-app.use('/api/attempts', attemptRoutes);
 
-// Обробка кореневого маршруту
-app.get('/', (req, res) => {
-    res.send('Test-Pad API is running!');
-});
-
-// Обробка помилок
+// Error handling
 app.use((err, req, res, next) => {
     console.error(err.stack);
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.status(500).json({ message: 'Something went wrong!' });
 });
 
-export default app;
+module.exports = app;
