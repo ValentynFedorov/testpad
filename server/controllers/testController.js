@@ -101,6 +101,22 @@ exports.startAttempt = async (req, res, next) => {
     }
 };
 
+exports.getAvailableTests = async (req, res) => {
+    try {
+        // Example implementation:
+        const tests = await Test.getAvailableTests(req.user.id);
+        res.status(200).json({
+            status: 'success',
+            data: tests
+        });
+    } catch (err) {
+        res.status(500).json({
+            status: 'error',
+            message: 'Failed to fetch available tests'
+        });
+    }
+};
+
 exports.submitAttempt = async (req, res, next) => {
     try {
         const attemptId = req.params.attemptId;

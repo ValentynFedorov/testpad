@@ -21,7 +21,7 @@ const initializeDatabase = async () => {
                 role ENUM('admin', 'teacher', 'student') NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 last_login TIMESTAMP NULL
-                )
+                );
         `);
 
         await query(`
@@ -35,7 +35,7 @@ const initializeDatabase = async () => {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP,
                 FOREIGN KEY (creator_id) REFERENCES Users(user_id)
-                )
+                );
         `);
 
         await query(`
@@ -47,7 +47,7 @@ const initializeDatabase = async () => {
             points INT DEFAULT 1,
             question_order INT NOT NULL,
             FOREIGN KEY (test_id) REFERENCES Tests(test_id) ON DELETE CASCADE
-    )
+    );
             `);
         await query(`
                 CREATE TABLE IF NOT EXISTS AnswerOptions (
@@ -57,7 +57,10 @@ const initializeDatabase = async () => {
                     is_correct BOOLEAN DEFAULT FALSE,
                     option_order INT NOT NULL,
                     FOREIGN KEY (question_id) REFERENCES Questions(question_id) ON DELETE CASCADE
+                
+                    );
             `);
+
         await query(`
                 CREATE TABLE IF NOT EXISTS TestAttempts (
                     attempt_id INT PRIMARY KEY AUTO_INCREMENT,
@@ -70,6 +73,8 @@ const initializeDatabase = async () => {
                     is_completed BOOLEAN DEFAULT FALSE,
                     FOREIGN KEY (test_id) REFERENCES Tests(test_id),
                     FOREIGN KEY (user_id) REFERENCES Users(user_id)
+                
+                    );
             `);
 
         await query(`
@@ -80,7 +85,9 @@ const initializeDatabase = async () => {
                     answer_text TEXT NULL COMMENT 'Для текстових відповідей',
                     points_earned INT NULL,
                     FOREIGN KEY (attempt_id) REFERENCES TestAttempts(attempt_id) ON DELETE CASCADE,
-                    FOREIGN KEY (question_id) REFERENCES Questions(question_id)
+                    FOREIGN KEY (question_id) REFERENCES Questions(question_id));
+            
+                
             `);
 
 
@@ -90,7 +97,7 @@ const initializeDatabase = async () => {
                     answer_id INT NOT NULL,
                     option_id INT NOT NULL,
                     FOREIGN KEY (answer_id) REFERENCES UserAnswers(answer_id) ON DELETE CASCADE,
-                    FOREIGN KEY (option_id) REFERENCES AnswerOptions(option_id)
+                    FOREIGN KEY (option_id) REFERENCES AnswerOptions(option_id));
             `);
 
         await query(`
@@ -99,7 +106,7 @@ const initializeDatabase = async () => {
                     group_name VARCHAR(100) NOT NULL,
                     created_by INT NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (created_by) REFERENCES Users(user_id)users
+                    FOREIGN KEY (created_by) REFERENCES Users(user_id));
             `);
 
 
@@ -111,7 +118,7 @@ const initializeDatabase = async () => {
                     joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (group_id) REFERENCES Groups(group_id) ON DELETE CASCADE,
                     FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE,
-                    UNIQUE (group_id, user_id)
+                    UNIQUE (group_id, user_id));
             `);
 
         await query(`
@@ -121,7 +128,7 @@ const initializeDatabase = async () => {
                     group_id INT NULL COMMENT 'NULL означає публічний доступ',
                     access_code VARCHAR(20) NULL COMMENT 'Код для доступу',
                     FOREIGN KEY (test_id) REFERENCES Tests(test_id) ON DELETE CASCADE,
-                    FOREIGN KEY (group_id) REFERENCES Groups(group_id) ON DELETE CASCADE
+                    FOREIGN KEY (group_id) REFERENCES Groups(group_id) ON DELETE CASCADE);
             `);
         await query(`
                 CREATE TABLE IF NOT EXISTS Sessions (
@@ -133,9 +140,9 @@ const initializeDatabase = async () => {
                     expires_at TIMESTAMP NOT NULL,
                     is_active BOOLEAN DEFAULT TRUE,
                     FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE,
-                    FOREIGN KEY (student_email) REFERENCES Users(email) ON DELETE CASCADE
+                    FOREIGN KEY (student_email) REFERENCES Users(email) ON DELETE CASCADE);
             
-            `)
+            `);
 
                 console.log('Database tables initialized');
             } catch (err) {

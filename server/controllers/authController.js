@@ -15,6 +15,31 @@ const generateToken = (user) => {
     );
 };
 
+exports.protect = async (req, res, next) => {
+    try {
+        let token;
+        if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+            token = req.headers.authorization.split(' ')[1];
+        }
+
+        if (!token) {
+            return res.status(401).json({ message: 'Not authorized, no token' });
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await User.getById(decoded.id);
+
+        if (!user) {
+            return res.status(401).json({ message: 'User not found' });
+        }
+
+        req.user = user;
+        next();
+    } catch (err) {
+        return res.status(401).json({ message: 'Not authorized, token failed' });
+    }
+};
+
 exports.register = async (req, res, next) => {
     try {
         const { username, email, password, role } = req.body;
@@ -102,14 +127,12 @@ exports.login = async (req, res, next) => {
     }
 };
 
-exports.logout = async (req, res, next) => {
-    try {
-        const token = req.headers.authorization.split(' ')[1];
-        await Session.invalidateToken(token);
-        res.json({ message: 'Logged out successfully' });
-    } catch (err) {
-        next(err);
-    }
+exports.logout = (req, res) => {
+    res.clearCookie('token');
+    res.status(200).json({
+        status: 'success',
+        message: 'Logged out successfully'
+    });
 };
 
 exports.getMe = async (req, res, next) => {
