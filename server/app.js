@@ -6,6 +6,7 @@ const authRoutes = require('./routes/authRoutes');
 const testRoutes = require('./routes/testRoutes');
 const sessionRoutes = require('./routes/sessionRoutes');
 const errorMiddleware = require('./middlewares/errorMiddleware');
+require('dotenv').config();
 
 const app = express();
 

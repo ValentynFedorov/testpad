@@ -4,36 +4,43 @@ import { useAuth } from '../context/AuthContext';
 import './AuthForm.css';
 
 export default function AuthForm({ mode }) {
+    const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [role, setRole] = useState('student');
     const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
-    const { login } = useAuth();
+    const { login, register } = useAuth();
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!email || !password) return setError('All fields required');
-        const users = JSON.parse(localStorage.getItem('users') || '[]');
+        setError('');
+        setLoading(true);
 
-        if (mode === 'register') {
-            if (users.find(u => u.email === email)) return setError('User exists');
-            users.push({ email, password, role });
-            localStorage.setItem('users', JSON.stringify(users));
-            login({ email, role });
-        } else {
-            const user = users.find(u => u.email === email && u.password === password);
-            if (!user) return setError('Invalid credentials');
-            login({ email, role: user.role });
-        }
+        try {
+            let result;
+            if (mode === 'register') {
+                result = await register(username, email, password, role);
+            } else {
+                result = await login(email, password);
+            }
 
-        const redirect = localStorage.getItem('redirectAfterLogin');
-        if (redirect) {
-            localStorage.removeItem('redirectAfterLogin');
-            navigate(redirect);
-        } else {
-            const currentRole = mode === 'register' ? role : users.find(u => u.email === email)?.role;
-            navigate(currentRole === 'teacher' ? '/teacher/dashboard' : '/student/dashboard');
+            if (result.success) {
+                const redirect = localStorage.getItem('redirectAfterLogin');
+                if (redirect) {
+                    localStorage.removeItem('redirectAfterLogin');
+                    navigate(redirect);
+                } else {
+                    navigate(result.role === 'teacher' ? '/teacher/dashboard' : '/student/dashboard');
+                }
+            } else {
+                setError(result.message);
+            }
+        } catch (err) {
+            setError('An error occurred. Please try again.');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -41,25 +48,39 @@ export default function AuthForm({ mode }) {
         <div className="auth-form-container">
             <h2>{mode === 'login' ? 'Login' : 'Register'}</h2>
             <form onSubmit={handleSubmit}>
+                {mode === 'register' && (
+                    <input
+                        placeholder="Username"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        required
+                    />
+                )}
                 <input
+                    type="email"
                     placeholder="Email"
                     value={email}
-                    onChange={e => setEmail(e.target.value)}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
                 />
                 <input
                     type="password"
                     placeholder="Password"
                     value={password}
-                    onChange={e => setPassword(e.target.value)}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength="6"
                 />
                 {mode === 'register' && (
-                    <select value={role} onChange={e => setRole(e.target.value)}>
+                    <select value={role} onChange={(e) => setRole(e.target.value)}>
                         <option value="student">Student</option>
                         <option value="teacher">Teacher</option>
                     </select>
                 )}
                 {error && <div className="auth-form-error">{error}</div>}
-                <button type="submit">{mode === 'login' ? 'Login' : 'Register'}</button>
+                <button type="submit" disabled={loading}>
+                    {loading ? 'Processing...' : mode === 'login' ? 'Login' : 'Register'}
+                </button>
             </form>
             <div className="switch-mode">
                 {mode === 'login' ? (
