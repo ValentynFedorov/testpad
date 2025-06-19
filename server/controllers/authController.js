@@ -27,18 +27,22 @@ exports.protect = async (req, res, next) => {
         }
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const user = await User.getById(decoded.id);
 
+        // Отримуємо користувача з БД
+        const user = await User.getById(decoded.id);
         if (!user) {
             return res.status(401).json({ message: 'User not found' });
         }
 
-        req.user = user;
+        // 🟢 Додаємо `id` для сумісності з getMe
+        req.user = { ...user, id: user.user_id };
         next();
     } catch (err) {
+        console.error('protect error:', err);
         return res.status(401).json({ message: 'Not authorized, token failed' });
     }
 };
+
 
 exports.register = async (req, res, next) => {
     try {
@@ -109,10 +113,7 @@ exports.login = async (req, res, next) => {
         expiresAt.setDate(expiresAt.getDate() + 30); // 30 days expiration
         await Session.create(token, user.user_id, user.email, expiresAt);
 
-        // Invalidate all other active sessions if needed
-        // await Session.invalidateAllUserSessions(user.user_id);
 
-        // Update last login
         await User.updateLastLogin(user.user_id);
 
         res.json({
@@ -135,17 +136,43 @@ exports.logout = (req, res) => {
     });
 };
 
-exports.getMe = async (req, res, next) => {
+exports.getMe = async (req, res) => {
     try {
-        const user = await User.getById(req.user.id);
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
+        const userId = req.user.id || req.user.user_id;
+
+        if (!userId) {
+            return res.status(401).json({
+                status: 'error',
+                message: 'Not authenticated'
+            });
         }
 
-        // Remove sensitive data
-        const { password_hash, ...userData } = user;
-        res.json(userData);
-    } catch (err) {
-        next(err);
+        const user = await User.getById(userId); // 👈 тут твоя кастомна функція з БД
+
+        if (!user) {
+            return res.status(404).json({
+                status: 'error',
+                message: 'User not found'
+            });
+        }
+
+        res.status(200).json({
+            status: 'success',
+            data: {
+                user: {
+                    username: user.username,
+                    email: user.email,
+                    role: user.role
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('getMe error:', error);
+        res.status(500).json({
+            status: 'error',
+            message: 'Internal server error',
+            ...(process.env.NODE_ENV === 'development' && { error: error.message })
+        });
     }
 };

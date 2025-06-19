@@ -13,6 +13,13 @@ export default function AuthForm({ mode }) {
     const navigate = useNavigate();
     const { login, register } = useAuth();
 
+    const normalizeRole = (role) => {
+        if (!role) return 'student';
+        if (typeof role === 'string') return role.toLowerCase();
+        if (typeof role === 'number') return role === 1 ? 'teacher' : 'student';
+        return 'student';
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
@@ -27,17 +34,25 @@ export default function AuthForm({ mode }) {
             }
 
             if (result.success) {
+                const userRole = normalizeRole(result.user.role);
+                console.log('🧑‍💻 User info:', result.user);
+
                 const redirect = localStorage.getItem('redirectAfterLogin');
                 if (redirect) {
                     localStorage.removeItem('redirectAfterLogin');
                     navigate(redirect);
                 } else {
-                    navigate(result.role === 'teacher' ? '/teacher/dashboard' : '/student/dashboard');
+                    if (userRole === 'teacher') {
+                        navigate('/teacher/dashboard');
+                    } else {
+                        navigate('/student/dashboard');
+                    }
                 }
             } else {
                 setError(result.message);
             }
         } catch (err) {
+            console.error('❌ Auth error:', err);
             setError('An error occurred. Please try again.');
         } finally {
             setLoading(false);
