@@ -8,6 +8,7 @@ import TakeTest from './components/TakeTest';
 import ResultPage from './components/ResultPage';
 import { useAuth } from './context/AuthContext';
 import EditTest from './components/EditTest';
+import TestWrapper from './components/TestWrapper';
 
 function App() {
     const { user } = useAuth();
@@ -26,7 +27,7 @@ function App() {
 
             {/* Student routes */}
             <Route path="/student/dashboard" element={user?.role === 'student' ? <StudentDashboard /> : <Navigate to="/login" />} />
-            <Route path="/test/:testId" element={user ? <TakeTest /> : <Navigate to="/login" />} />
+            <Route path="/test/:testId" element={<TestWrapper />} />
             <Route path="/result/:sessionId" element={user ? <ResultPage /> : <Navigate to="/login" />} />
         </Routes>
     );

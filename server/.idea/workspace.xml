@@ -5,11 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="30d2eece-2de4-4787-a074-b1eb498c1b9f" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/MarsCodeWorkspaceAppSettings.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../client/src/components/AuthForm.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/../client/src/components/AuthForm.jsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../client/src/context/AuthContext.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/../client/src/context/AuthContext.jsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../client/src/components/TestWrapper.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../client/src/components/StudentDashboard.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/../client/src/components/StudentDashboard.jsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/controllers/authController.js" beforeDir="false" afterPath="$PROJECT_DIR$/controllers/authController.js" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -73,7 +71,7 @@
       <workItem from="1747771477504" duration="2924000" />
       <workItem from="1748607456362" duration="47000" />
       <workItem from="1750327321262" duration="1440000" />
-      <workItem from="1750355116479" duration="1009000" />
+      <workItem from="1750355116479" duration="1647000" />
     </task>
     <servers />
   </component>
